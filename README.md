@@ -48,6 +48,20 @@ Bot នឹងបដិសេធ `--telegram` ប្រសិនបើ variables 
 
 ពេលក្រោយ មុនបើក Telegram delivery យើងត្រូវបន្ថែម live market-data adapter មុន។ កុំប្ដូរ `PAPER_DATA_MODE` ទៅ `csv` លុះត្រាតែមាន `XAUUSD_CSV_PATH` អាចអានបាននៅ runtime។
 
+## Twelve Data live market data (paper only)
+
+Bot គាំទ្រ Twelve Data សម្រាប់ `XAU/USD` OHLC candles។ នៅ Render → **Environment** សូមបន្ថែម៖
+
+```text
+PAPER_DATA_MODE=twelve_data
+TWELVE_DATA_API_KEYS=key_1,key_2,key_3
+TWELVE_DATA_SYMBOL=XAU/USD
+TWELVE_DATA_INTERVAL=5min
+TWELVE_DATA_OUTPUTSIZE=200
+```
+
+`TWELVE_DATA_API_KEYS` អាចដាក់ key ច្រើន ដោយបំបែកជាមួយ comma។ Bot នឹងសាក key តាមលំដាប់ ហើយប្ដូរទៅ key បន្ទាប់ ប្រសិនបើ API key មុនមាន quota/error។ Key មិនត្រូវបញ្ចូលក្នុង GitHub, `render.yaml`, `/status`, ឬផ្ញើមកខ្ញុំទេ។ Twelve Data បង្ហាញថា `XAU/USD` និង `/time_series` គាំទ្រ intraday OHLC; ត្រូវជ្រើស plan ដែលអនុញ្ញាត commodity time-series data។
+
 ## Logic សង្ខេប
 
 - **Trend:** EMA(20) ទល់ EMA(50)

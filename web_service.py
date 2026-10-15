@@ -13,14 +13,21 @@ import bot
 INTERVAL_SECONDS = max(60, int(os.getenv("PAPER_SCAN_INTERVAL_SECONDS", "300")))
 DATA_MODE = os.getenv("PAPER_DATA_MODE", "demo").lower()
 CSV_PATH = os.getenv("XAUUSD_CSV_PATH", "")
+TWELVE_SYMBOL = os.getenv("TWELVE_DATA_SYMBOL", "XAU/USD")
+TWELVE_INTERVAL = os.getenv("TWELVE_DATA_INTERVAL", "5min")
+TWELVE_OUTPUTSIZE = max(80, int(os.getenv("TWELVE_DATA_OUTPUTSIZE", "200")))
 state = {"mode": "paper", "data_mode": DATA_MODE, "telegram_delivery": "disabled", "last_scan": None, "last_result": None, "error": None}
 
 def scan_once():
     # Demo data is intentionally non-deliverable: it must never create fake Telegram signals.
-    candles = bot.demo_data() if DATA_MODE == "demo" else bot.load_csv(CSV_PATH)
+    if DATA_MODE == "demo": candles = bot.demo_data()
+    elif DATA_MODE == "csv": candles = bot.load_csv(CSV_PATH)
+    elif DATA_MODE == "twelve_data":
+        candles = bot.fetch_twelve_data(os.getenv("TWELVE_DATA_API_KEYS", ""), TWELVE_SYMBOL, TWELVE_INTERVAL, TWELVE_OUTPUTSIZE)
+    else: raise ValueError("PAPER_DATA_MODE must be demo, csv, or twelve_data")
     start = int(len(candles) * .70)
     events, ml_trained = bot.alerts(candles, start, len(candles), os.getenv("ML_ENABLED", "true").lower() == "true")
-    state.update({"last_scan": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "last_result": bot.report(events), "ml_trained": ml_trained, "error": None})
+    state.update({"last_scan": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "last_result": bot.report(events), "ml_trained": ml_trained, "symbol": TWELVE_SYMBOL if DATA_MODE == "twelve_data" else "XAUUSD", "interval": TWELVE_INTERVAL if DATA_MODE == "twelve_data" else None, "error": None})
 
 def monitor():
     while True:

@@ -1,4 +1,5 @@
-import unittest
+import io, json, unittest
+from unittest.mock import patch
 import bot
 
 class BotTests(unittest.TestCase):
@@ -36,4 +37,15 @@ class BotTests(unittest.TestCase):
         web_service.scan_once()
         self.assertEqual(web_service.state["telegram_delivery"], "disabled")
         self.assertIsNotNone(web_service.state["last_result"])
+    def test_twelve_data_falls_back_to_second_key(self):
+        class Response:
+            def __init__(self, payload): self.payload=payload
+            def __enter__(self): return self
+            def __exit__(self,*_): return False
+            def read(self,*_): return json.dumps(self.payload).encode()
+        values=[{"datetime":f"2025-01-01 00:{i:02d}:00","open":"1","high":"2","low":"0.5","close":"1.5"} for i in range(80)]
+        with patch("bot.urlopen", side_effect=[Response({"status":"error","message":"quota"}),Response({"values":values})]) as request:
+            candles=bot.fetch_twelve_data("bad-key,good-key")
+        self.assertEqual(len(candles),80)
+        self.assertEqual(request.call_count,2)
 if __name__ == "__main__": unittest.main()

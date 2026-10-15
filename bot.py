@@ -38,6 +38,26 @@ def demo_data(n=900, seed=7) -> list[Candle]:
         price = close
     return out
 
+def fetch_twelve_data(api_keys: str, symbol="XAU/USD", interval="5min", outputsize=200) -> list[Candle]:
+    """Fetch OHLC candles with quota/error failover; API keys never appear in errors."""
+    keys = [k.strip() for k in api_keys.split(",") if k.strip()]
+    if not keys: raise ValueError("TWELVE_DATA_API_KEYS is required for Twelve Data mode")
+    last_error = "no response"
+    for key in keys:
+        query = urlencode({"symbol": symbol, "interval": interval, "outputsize": outputsize, "apikey": key})
+        try:
+            req = Request("https://api.twelvedata.com/time_series?" + query, headers={"User-Agent": "xauusd-paper-signal-bot/1.0"})
+            with urlopen(req, timeout=15) as response: payload = json.load(response)
+            values = payload.get("values")
+            if not values: raise ValueError(payload.get("message", payload.get("status", "no candle data")))
+            rows = [Candle(str(x["datetime"]), float(x["open"]), float(x["high"]), float(x["low"]), float(x["close"]), float(x.get("volume") or 0)) for x in values]
+            rows.sort(key=lambda x: x.time)
+            if len(rows) < 80: raise ValueError("provider returned fewer than 80 candles")
+            return rows
+        except Exception as exc:
+            last_error = type(exc).__name__ + ": " + str(exc)
+    raise RuntimeError("All Twelve Data keys failed: " + last_error)
+
 def ema(values, period):
     out, alpha = [], 2/(period+1); v = values[0]
     for x in values: v = alpha*x + (1-alpha)*v; out.append(v)
