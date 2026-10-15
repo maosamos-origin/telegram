@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: xauusd-paper-signal-bot
+    runtime: python
+    plan: free
+    buildCommand: "true"
+    startCommand: python3 web_service.py
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    envVars:
+      - key: PAPER_DATA_MODE
+        value: demo
+      - key: PAPER_SCAN_INTERVAL_SECONDS
+        value: "300"
+      - key: ML_ENABLED
+        value: "true"
