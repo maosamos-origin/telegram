@@ -16,7 +16,9 @@ CSV_PATH = os.getenv("XAUUSD_CSV_PATH", "")
 TWELVE_SYMBOL = os.getenv("TWELVE_DATA_SYMBOL", "XAU/USD")
 TWELVE_INTERVAL = os.getenv("TWELVE_DATA_INTERVAL", "5min")
 TWELVE_OUTPUTSIZE = max(80, int(os.getenv("TWELVE_DATA_OUTPUTSIZE", "200")))
-state = {"mode": "paper", "data_mode": DATA_MODE, "telegram_delivery": "disabled", "last_scan": None, "last_result": None, "error": None}
+TELEGRAM_ENABLED = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"
+delivered_events = set()
+state = {"mode": "paper", "data_mode": DATA_MODE, "telegram_delivery": "enabled" if TELEGRAM_ENABLED else "disabled", "last_scan": None, "last_result": None, "error": None}
 
 def scan_once():
     # Demo data is intentionally non-deliverable: it must never create fake Telegram signals.
@@ -25,9 +27,20 @@ def scan_once():
     elif DATA_MODE == "twelve_data":
         candles = bot.fetch_twelve_data(os.getenv("TWELVE_DATA_API_KEYS", ""), TWELVE_SYMBOL, TWELVE_INTERVAL, TWELVE_OUTPUTSIZE)
     else: raise ValueError("PAPER_DATA_MODE must be demo, csv, or twelve_data")
+    # The latest provider candle can still be forming. Analyze only the previous closed candle.
+    end = len(candles) - 1
     start = int(len(candles) * .70)
-    events, ml_trained = bot.alerts(candles, start, len(candles), os.getenv("ML_ENABLED", "true").lower() == "true")
-    state.update({"last_scan": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "last_result": bot.report(events), "ml_trained": ml_trained, "symbol": TWELVE_SYMBOL if DATA_MODE == "twelve_data" else "XAUUSD", "interval": TWELVE_INTERVAL if DATA_MODE == "twelve_data" else None, "error": None})
+    events, ml_trained = bot.alerts(candles, start, end, os.getenv("ML_ENABLED", "true").lower() == "true")
+    closed_index = end - 1
+    newest = [event for event in events if event[1] == closed_index]
+    sent = 0
+    if TELEGRAM_ENABLED:
+        for event in newest:
+            fingerprint = (event[0], candles[event[1]].time, event[2].side, event[3])
+            if fingerprint not in delivered_events:
+                bot.notify(bot.format_event(event, candles), telegram=True)
+                delivered_events.add(fingerprint); sent += 1
+    state.update({"last_scan": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "last_candle_time": candles[closed_index].time, "last_result": bot.report(events), "latest_events": [event[0] for event in newest], "alerts_sent_last_scan": sent, "ml_trained": ml_trained, "symbol": TWELVE_SYMBOL if DATA_MODE == "twelve_data" else "XAUUSD", "interval": TWELVE_INTERVAL if DATA_MODE == "twelve_data" else None, "error": None})
 
 def monitor():
     while True:

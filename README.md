@@ -42,6 +42,16 @@ Bot នឹងបដិសេធ `--telegram` ប្រសិនបើ variables 
 
 Telegram delivery ត្រូវបានកំណត់សម្រាប់ **group/supergroup ប៉ុណ្ណោះ**។ `TELEGRAM_CHAT_ID` ត្រូវតែជា negative ID (ឧ. `-1001234567890`)។ Bot នឹងបដិសេធ private-chat ID ដោយស្វ័យប្រវត្តិ។ ដើម្បីរក group ID៖ បន្ថែម bot ទៅ group, ផ្ញើ `/start@YourBotUsername` ក្នុង group, រួចប្រើ `getUpdates` របស់ Telegram Bot API ដើម្បីអាន `message.chat.id`។ Privacy Mode អាចនៅបើកដដែល ព្រោះ bot របស់យើងផ្ញើ alerts តែប៉ុណ្ណោះ មិនអានសារ group ទូទៅ។
 
+ដើម្បីបើក delivery នៅ Render បន្ទាប់ពី Twelve Data ដំណើរការរួច សូមបន្ថែម៖
+
+```text
+TELEGRAM_BOT_TOKEN=your-token
+TELEGRAM_CHAT_ID=-1001234567890
+TELEGRAM_ENABLED=true
+```
+
+Bot ផ្ញើតែ alert សម្រាប់ **closed candle ចុងក្រោយ** ហើយរក្សាទុក fingerprint ក្នុង memory ដើម្បីកុំផ្ញើ alert ដដែលក្នុង runtime តែមួយ។ Telegram មិនត្រូវបានបើកដោយលំនាំដើមទេ។
+
 ## Render Web Service (Paper mode)
 
 `render.yaml` និង `web_service.py` ត្រូវបានរៀបចំសម្រាប់ Render។ Web Service បើក `/health` (សម្រាប់ Render) និង `/status` (សម្រាប់មើលស្ថានភាព)។ នៅ configuration ដំបូង វាប្រើ `PAPER_DATA_MODE=demo` និង **បិទ Telegram delivery ជាអចិន្ត្រៃយ៍** ដើម្បីកុំឱ្យ demo candles បង្កើត alert ក្លែងក្លាយ។

@@ -48,6 +48,11 @@ class BotTests(unittest.TestCase):
         web_service.scan_once()
         self.assertEqual(web_service.state["telegram_delivery"], "disabled")
         self.assertIsNotNone(web_service.state["last_result"])
+    def test_web_scans_only_closed_candle(self):
+        import web_service
+        with patch("web_service.bot.alerts", return_value=([], False)) as alerts:
+            web_service.scan_once()
+        self.assertEqual(alerts.call_args.args[2], len(bot.demo_data())-1)
     def test_twelve_data_falls_back_to_second_key(self):
         class Response:
             def __init__(self, payload): self.payload=payload
