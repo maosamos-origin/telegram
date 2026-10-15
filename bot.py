@@ -158,6 +158,7 @@ def notify(message, telegram=False):
     if not telegram: print("[DRY-RUN]",message); return
     token,chat=os.getenv("TELEGRAM_BOT_TOKEN"),os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat: raise RuntimeError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required for --telegram")
+    if not chat.startswith("-"): raise RuntimeError("TELEGRAM_CHAT_ID must be a negative group or supergroup ID; private chats are blocked")
     req=Request(f"https://api.telegram.org/bot{token}/sendMessage", data=urlencode({"chat_id":chat,"text":message}).encode(), method="POST")
     with urlopen(req,timeout=10) as response:
         if not json.load(response).get("ok"): raise RuntimeError("Telegram rejected the message")

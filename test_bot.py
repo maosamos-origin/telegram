@@ -25,6 +25,17 @@ class BotTests(unittest.TestCase):
         finally:
             if old1: os.environ["TELEGRAM_BOT_TOKEN"]=old1
             if old2: os.environ["TELEGRAM_CHAT_ID"]=old2
+    def test_telegram_blocks_private_chat(self):
+        import os
+        old1,old2=os.environ.get("TELEGRAM_BOT_TOKEN"),os.environ.get("TELEGRAM_CHAT_ID")
+        os.environ["TELEGRAM_BOT_TOKEN"]="test-token"; os.environ["TELEGRAM_CHAT_ID"]="12345"
+        try:
+            with self.assertRaisesRegex(RuntimeError,"private chats are blocked"): bot.notify("test",True)
+        finally:
+            if old1 is None: os.environ.pop("TELEGRAM_BOT_TOKEN",None)
+            else: os.environ["TELEGRAM_BOT_TOKEN"]=old1
+            if old2 is None: os.environ.pop("TELEGRAM_CHAT_ID",None)
+            else: os.environ["TELEGRAM_CHAT_ID"]=old2
     def test_ranker_trains_only_with_two_classes(self):
         ranker=bot.LogisticRanker().fit([[0,0],[1,1],[0.1,0],[.9,1]] ,[0,1,0,1])
         self.assertFalse(ranker.ready)  # too few samples: intentional safety guard
