@@ -2,6 +2,7 @@
 """Hardened paper-only HTTP monitor. Run one worker instance; no broker actions."""
 import json
 import os
+import hmac
 import threading
 import time
 from datetime import datetime, timezone
@@ -131,7 +132,33 @@ def monitor():
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_): pass
     def do_GET(self):
-        if self.path == '/health':
+        if self.path in ('/api/history', '/api/stats'):
+            token = os.getenv('HISTORY_API_TOKEN', '')
+            provided = self.headers.get('Authorization', '')
+
+            if (not token or not hmac.compare_digest(
+                provided, 'Bearer ' + token
+            )):
+                body, code = {'error': 'unauthorized'}, 401
+            elif not HISTORY_DB.is_file():
+                body, code = {'error': 'history unavailable'}, 503
+            else:
+                try:
+                    history = SignalHistory(HISTORY_DB)
+                    try:
+                        if self.path == '/api/history':
+                            body = {
+                                'history': history.latest(20),
+                                'mode': 'paper'
+                            }
+                        else:
+                            body = history.stats()
+                        code = 200
+                    finally:
+                        history.close()
+                except Exception:
+                    body, code = {'error': 'history unavailable'}, 503
+        elif self.path == '/health':
             body, code = {'ok':True,'mode':'paper'},200
         elif self.path in ('/','/status'):
             with lock: body = dict(state)
