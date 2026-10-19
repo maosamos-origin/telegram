@@ -2,3 +2,8 @@
 __pycache__/
 work/
 *.pyc
+alert-state.json
+alert-state.tmp
+*.v1-backup
+*.v2-backup
+.gitignore.v2-backup
