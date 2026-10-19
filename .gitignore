@@ -7,3 +7,6 @@ alert-state.tmp
 *.v1-backup
 *.v2-backup
 .gitignore.v2-backup
+*.db
+*.db-shm
+*.db-wal
