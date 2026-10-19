@@ -28,6 +28,10 @@ class SignalHistory:
                 created_at TEXT NOT NULL
             )
         """)
+        self.db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_signals_created "
+            "ON signals(created_at DESC)"
+        )
         self.db.commit()
 
     def save_signal(
@@ -85,6 +89,22 @@ class SignalHistory:
         return self.db.execute(
             "SELECT COUNT(*) FROM signals"
         ).fetchone()[0]
+
+    def stats(self):
+        rows = self.db.execute(
+            "SELECT side, COUNT(*) FROM signals GROUP BY side"
+        ).fetchall()
+        counts = {"BUY": 0, "SELL": 0, "CLOSE": 0}
+        for side, count in rows:
+            if side in counts:
+                counts[side] = count
+        return {
+            "total": sum(counts.values()),
+            "buy": counts["BUY"],
+            "sell": counts["SELL"],
+            "close": counts["CLOSE"],
+            "note": "Alert counts only; not trading performance"
+        }
 
     def close(self):
         self.db.close()
