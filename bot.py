@@ -155,13 +155,39 @@ def format_event(event,c):
     return f"XAUUSD {kind} | entry {s.entry:.2f} | SL {s.stop:.2f} | TP {s.target:.2f} | score {s.score:.2f} | {s.reason} | {c[i].time}"
 
 def notify(message, telegram=False):
-    if not telegram: print("[DRY-RUN]",message); return
-    token,chat=os.getenv("TELEGRAM_BOT_TOKEN"),os.getenv("TELEGRAM_CHAT_ID")
-    if not token or not chat: raise RuntimeError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required for --telegram")
-    if not chat.startswith("-"): raise RuntimeError("TELEGRAM_CHAT_ID must be a negative group or supergroup ID; private chats are blocked")
-    req=Request(f"https://api.telegram.org/bot{token}/sendMessage", data=urlencode({"chat_id":chat,"text":message}).encode(), method="POST")
-    with urlopen(req,timeout=10) as response:
-        if not json.load(response).get("ok"): raise RuntimeError("Telegram rejected the message")
+    if not telegram:
+        print("[DRY-RUN]", message)
+        return
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat = os.getenv("TELEGRAM_CHAT_ID")
+
+    if not token or not chat:
+        raise RuntimeError("Telegram credentials are not configured")
+
+    if not chat.startswith("-"):
+        raise RuntimeError("Telegram group or supergroup required; private chats are blocked")
+
+    req = Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=urlencode({
+            "chat_id": chat,
+            "text": message
+        }).encode(),
+        method="POST"
+    )
+
+    try:
+        with urlopen(req, timeout=10) as response:
+            data = json.load(response)
+
+        if not isinstance(data, dict) or data.get("ok") is not True:
+            raise ValueError("Unconfirmed Telegram response")
+
+    except Exception:
+        # Do not expose exception details containing the token URL.
+        raise RuntimeError("Telegram delivery failed or unconfirmed") from None
+
 
 def report(events):
     closed=[x for x in events if x[0]=="CLOSE"]; pnl=[x[5] for x in closed]
