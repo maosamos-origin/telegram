@@ -10,6 +10,7 @@ from pathlib import Path
 
 import bot
 from alert_templates import render, STYLES
+from signal_history import SignalHistory
 
 SCAN_SECONDS = max(60, int(os.getenv('PAPER_SCAN_INTERVAL_SECONDS', '300')))
 DATA_MODE = os.getenv('PAPER_DATA_MODE', 'demo').lower()
@@ -19,6 +20,7 @@ STATE_FILE = Path(os.getenv('ALERT_STATE_FILE', './alert-state.json'))
 MAX_STALE_SECONDS = max(60, int(os.getenv('MAX_CANDLE_STALE_SECONDS', '1200')))
 TWELVE_INTERVAL = os.getenv('TWELVE_DATA_INTERVAL', '5min')
 TWELVE_SYMBOL = os.getenv('TWELVE_DATA_SYMBOL', 'XAU/USD')
+HISTORY_DB = Path(os.getenv('SIGNAL_HISTORY_DB', './signal-history.db'))
 lock = threading.Lock()
 state = {'mode':'paper', 'data_mode':DATA_MODE, 'telegram_delivery':'enabled' if TELEGRAM_ENABLED else 'disabled',
          'template':TEMPLATE_STYLE,'last_scan':None,'last_result':None,'error':None}
@@ -92,6 +94,27 @@ def scan_once():
                     raise
 
                 sent += 1
+
+                # Best-effort history after confirmed delivery.
+                # Failure here must not resend a delivered alert.
+                try:
+                    history = SignalHistory(HISTORY_DB)
+                    try:
+                        history.save_signal(
+                            fingerprint,
+                            TWELVE_SYMBOL,
+                            TWELVE_INTERVAL,
+                            event[0],
+                            event[2].entry,
+                            event[2].stop,
+                            event[2].target,
+                            candles[closed_idx].time
+                        )
+                    finally:
+                        history.close()
+                except Exception:
+                    print('signal history write failed')
+
     with lock:
         state.update({'last_scan':datetime.now(timezone.utc).isoformat(), 'last_candle_time':candles[closed_idx].time,
                       'last_result':bot.report(events),'latest_events':[e[0] for e in latest],
