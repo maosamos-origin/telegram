@@ -42,7 +42,6 @@ def fetch_twelve_data(api_keys: str, symbol="XAU/USD", interval="5min", outputsi
     """Fetch OHLC candles with quota/error failover; API keys never appear in errors."""
     keys = [k.strip() for k in api_keys.split(",") if k.strip()]
     if not keys: raise ValueError("TWELVE_DATA_API_KEYS is required for Twelve Data mode")
-    last_error = "no response"
     for key in keys:
         query = urlencode({"symbol": symbol, "interval": interval, "outputsize": outputsize, "apikey": key})
         try:
@@ -54,9 +53,10 @@ def fetch_twelve_data(api_keys: str, symbol="XAU/USD", interval="5min", outputsi
             rows.sort(key=lambda x: x.time)
             if len(rows) < 80: raise ValueError("provider returned fewer than 80 candles")
             return rows
-        except Exception as exc:
-            last_error = type(exc).__name__ + ": " + str(exc)
-    raise RuntimeError("All Twelve Data keys failed: " + last_error)
+        except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+            # Never expose provider response text or credentials.
+            continue
+    raise RuntimeError("All Twelve Data keys failed; check provider configuration and availability")
 
 def ema(values, period):
     out, alpha = [], 2/(period+1); v = values[0]

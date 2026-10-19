@@ -78,15 +78,20 @@ def scan_once():
         for event in latest:
             fingerprint = f'{TWELVE_SYMBOL}|{TWELVE_INTERVAL}|{event[0]}|{candles[closed_idx].time}|{event[2].side}|{event[3]}'
             with lock:
-                if fingerprint in sent_events: continue
-                # If state persistence fails do not deliver a message repeatedly on every scan.
+                if fingerprint in sent_events:
+                    continue
+
+                # Do not mark as delivered before Telegram confirms success.
+                bot.notify(render(event, candles, TEMPLATE_STYLE), telegram=True)
+
                 sent_events.add(fingerprint)
-                try: _persist_sent()
+                try:
+                    _persist_sent()
                 except Exception:
-                    sent_events.remove(fingerprint)
+                    sent_events.discard(fingerprint)
                     raise
-            bot.notify(render(event, candles, TEMPLATE_STYLE), telegram=True)
-            sent += 1
+
+                sent += 1
     with lock:
         state.update({'last_scan':datetime.now(timezone.utc).isoformat(), 'last_candle_time':candles[closed_idx].time,
                       'last_result':bot.report(events),'latest_events':[e[0] for e in latest],
