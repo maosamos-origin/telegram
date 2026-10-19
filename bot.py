@@ -176,8 +176,10 @@ def main():
     c=demo_data() if a.demo else load_csv(a.csv)
     start=int(len(c)*.70); events, ml_ready=alerts(c,start,len(c),a.ml)
     if a.command=="simulate":
-        for e in events: notify(format_event(e,c), a.telegram and not a.dry_run)
-        if not events: notify(f"XAUUSD WAIT | no qualifying setup in {c[start].time} to {c[-1].time}",a.telegram and not a.dry_run)
+        if a.telegram and not a.dry_run:
+            p.error("CLI historical simulation cannot send Telegram messages; use web_service.py with fresh validated live candles")
+        for e in events: notify(format_event(e,c), False)
+        if not events: notify(f"XAUUSD WAIT | no qualifying setup in {c[start].time} to {c[-1].time}",False)
     result=report(events); result.update({"data":"demo (synthetic)" if a.demo else str(a.csv),"test_candles":len(c)-start,"ml_enabled":a.ml,"ml_trained":ml_ready})
     print(json.dumps(result,indent=2))
 if __name__=="__main__": main()
