@@ -5,6 +5,7 @@ Not connected to live monitoring or broker execution.
 """
 
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 
@@ -17,14 +18,19 @@ class PositionTracker:
         self.db_path = db_path
         self.initialize()
 
+    @contextmanager
     def connect(self):
         connection = sqlite3.connect(
             self.db_path,
             timeout=10,
         )
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA busy_timeout=10000")
-        return connection
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA busy_timeout=10000")
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def initialize(self):
         with self.connect() as db:
