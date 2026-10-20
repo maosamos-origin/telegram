@@ -1,0 +1,36 @@
+
+name: XAUUSD V2.4 Safety Tests
+
+on:
+  push:
+    branches:
+      - feature/telegram-v2.4
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout V2.4 code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Python syntax
+        run: |
+          python -m compileall -q .
+
+      - name: Run all unit tests
+        env:
+          TELEGRAM_ENABLED: "false"
+          DAILY_REPORT_TELEGRAM_ENABLED: "false"
+        run: |
+          python -m unittest discover -v
