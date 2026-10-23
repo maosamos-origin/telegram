@@ -76,6 +76,8 @@ def scan_once():
     events, trained = bot.alerts(candles, start, len(candles)-1,
                                   os.getenv('ML_ENABLED', 'true').lower() == 'true')
     latest = [e for e in events if e[1] == closed_idx]
+    if os.getenv('SEND_CLOSE_ALERTS', 'true').lower() != 'true':
+        latest = [e for e in latest if e[0] != 'CLOSE']
     sent = 0
     if TELEGRAM_ENABLED:
         for event in latest:
