@@ -43,7 +43,7 @@ def fetch_twelve_data(api_keys: str, symbol="XAU/USD", interval="5min", outputsi
     keys = [k.strip() for k in api_keys.split(",") if k.strip()]
     if not keys: raise ValueError("TWELVE_DATA_API_KEYS is required for Twelve Data mode")
     for key in keys:
-        query = urlencode({"symbol": symbol, "interval": interval, "outputsize": outputsize, "apikey": key})
+        query = urlencode({"symbol": symbol, "interval": interval, "outputsize": outputsize, "timezone": "UTC", "apikey": key})
         try:
             req = Request("https://api.twelvedata.com/time_series?" + query, headers={"User-Agent": "xauusd-paper-signal-bot/1.0"})
             with urlopen(req, timeout=15) as response: payload = json.load(response)
@@ -82,10 +82,18 @@ def candidate(c, i, ind) -> Signal | None:
     bull_sweep=x.low < lo and x.close > lo; bear_sweep=x.high > hi and x.close < hi
     bull=e20[i]>e50[i] and bull_sweep and rsi[i] > 45
     bear=e20[i]<e50[i] and bear_sweep and rsi[i] < 55
+    reason=f"EMA trend + liquidity sweep + RSI {rsi[i]:.1f}; ATR {atr[i]:.2f}"
+    if not (bull or bear) and os.getenv("STRATEGY_MODE","sweep")=="hybrid" and atr[i] > 0:
+        # Extra setup: trend pullback to EMA20, then close back in trend direction.
+        up=e20[i]>e50[i] and x.close>e50[i]
+        dn=e20[i]<e50[i] and x.close<e50[i]
+        bull=up and x.low<=e20[i] and x.close>e20[i] and x.close>x.open and 45<rsi[i]<68
+        bear=dn and x.high>=e20[i] and x.close<e20[i] and x.close<x.open and 32<rsi[i]<55
+        reason=f"EMA trend pullback + rejection candle + RSI {rsi[i]:.1f}; ATR {atr[i]:.2f}"
     if not (bull or bear) or atr[i] <= 0: return None
     side="BUY" if bull else "SELL"; risk=1.2*atr[i]
     stop=x.close-risk if bull else x.close+risk; target=x.close+2*risk if bull else x.close-2*risk
-    return Signal(side,i,x.close,stop,target,atr[i],reason=f"EMA trend + liquidity sweep + RSI {rsi[i]:.1f}; ATR {atr[i]:.2f}")
+    return Signal(side,i,x.close,stop,target,atr[i],reason=reason)
 
 class LogisticRanker:
     def fit(self, samples, labels):
