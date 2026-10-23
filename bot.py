@@ -83,12 +83,22 @@ def candidate(c, i, ind) -> Signal | None:
     bull=e20[i]>e50[i] and bull_sweep and rsi[i] > 45
     bear=e20[i]<e50[i] and bear_sweep and rsi[i] < 55
     reason=f"EMA trend + liquidity sweep + RSI {rsi[i]:.1f}; ATR {atr[i]:.2f}"
-    if not (bull or bear) and os.getenv("STRATEGY_MODE","sweep")=="hybrid" and atr[i] > 0:
+    mode=os.getenv("STRATEGY_MODE","sweep")
+    if not (bull or bear) and mode in ("hybrid","balanced") and atr[i] > 0:
         # Extra setup: trend pullback to EMA20, then close back in trend direction.
         up=e20[i]>e50[i] and x.close>e50[i]
         dn=e20[i]<e50[i] and x.close<e50[i]
         bull=up and x.low<=e20[i] and x.close>e20[i] and x.close>x.open and 45<rsi[i]<68
         bear=dn and x.high>=e20[i] and x.close<e20[i] and x.close<x.open and 32<rsi[i]<55
+        if mode=="balanced":
+            # Quality filters: clear trend, liquid session, confirmation beyond previous candle.
+            try: hour=datetime.fromisoformat(str(x.time).replace("Z","+00:00")).hour
+            except ValueError: hour=-1
+            h0,h1=int(os.getenv("SESSION_START_UTC","7")),int(os.getenv("SESSION_END_UTC","20"))
+            strong=abs(e20[i]-e50[i])>=0.5*atr[i]
+            in_session=h0<=hour<h1
+            bull=bull and strong and in_session and x.close>c[i-1].high
+            bear=bear and strong and in_session and x.close<c[i-1].low
         reason=f"EMA trend pullback + rejection candle + RSI {rsi[i]:.1f}; ATR {atr[i]:.2f}"
     if not (bull or bear) or atr[i] <= 0: return None
     side="BUY" if bull else "SELL"; risk=1.2*atr[i]
@@ -217,4 +227,3 @@ def main():
     result=report(events); result.update({"data":"demo (synthetic)" if a.demo else str(a.csv),"test_candles":len(c)-start,"ml_enabled":a.ml,"ml_trained":ml_ready})
     print(json.dumps(result,indent=2))
 if __name__=="__main__": main()
-    
