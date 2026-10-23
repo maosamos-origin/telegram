@@ -24,7 +24,7 @@ TWELVE_SYMBOL = os.getenv('TWELVE_DATA_SYMBOL', 'XAU/USD')
 HISTORY_DB = Path(os.getenv('SIGNAL_HISTORY_DB', './signal-history.db'))
 lock = threading.Lock()
 state = {'mode':'paper', 'data_mode':DATA_MODE, 'telegram_delivery':'enabled' if TELEGRAM_ENABLED else 'disabled',
-         'template':TEMPLATE_STYLE,'last_scan':None,'last_result':None,'error':None}
+         'template':TEMPLATE_STYLE,'strategy_mode':os.getenv('STRATEGY_MODE','sweep'),'last_scan':None,'last_result':None,'error':None}
 
 def _load_delivery():
     try:
