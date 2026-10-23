@@ -217,3 +217,4 @@ def main():
     result=report(events); result.update({"data":"demo (synthetic)" if a.demo else str(a.csv),"test_candles":len(c)-start,"ml_enabled":a.ml,"ml_trained":ml_ready})
     print(json.dumps(result,indent=2))
 if __name__=="__main__": main()
+    
