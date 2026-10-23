@@ -146,7 +146,7 @@ def alerts(c, start, end, use_ml=False):
             elif active.side=="SELL" and x.high>=active.stop: exit_price,reason=active.stop,"stop loss"
             elif active.side=="BUY" and x.high>=active.target: exit_price,reason=active.target,"take profit"
             elif active.side=="SELL" and x.low<=active.target: exit_price,reason=active.target,"take profit"
-            elif (active.side=="BUY" and ind[0][i]<ind[1][i]) or (active.side=="SELL" and ind[0][i]>ind[1][i]): exit_price,reason=x.close,"trend reversal"
+            elif os.getenv("EXIT_ON_TREND_REVERSAL","true").lower()=="true" and ((active.side=="BUY" and ind[0][i]<ind[1][i]) or (active.side=="SELL" and ind[0][i]>ind[1][i])): exit_price,reason=x.close,"trend reversal"
             if reason:
                 pnl=(exit_price-active.entry)*(1 if active.side=="BUY" else -1)
                 events.append(("CLOSE",i,active,exit_price,reason,pnl)); active=None
