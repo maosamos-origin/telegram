@@ -75,9 +75,19 @@ def indicators(c):
         rsi.append(100 if loss == 0 and gain else (50 if not loss else 100-100/(1+gain/loss)))
     return e20,e50,atr,rsi
 
+def market_closed(t) -> bool:
+    """Gold (XAUUSD) is closed from Friday ~21:00 UTC to Sunday ~22:00 UTC; feeds show flat noise then."""
+    try: dt=datetime.fromisoformat(str(t).replace("Z","+00:00"))
+    except ValueError: return False
+    if dt.tzinfo is not None: dt=dt.astimezone(timezone.utc)
+    wd,h=dt.weekday(),dt.hour
+    return wd==5 or (wd==4 and h>=21) or (wd==6 and h<22)
+
 def candidate(c, i, ind) -> Signal | None:
     if i < 55: return None
+    if os.getenv("WEEKEND_FILTER","true").lower()=="true" and market_closed(c[i].time): return None
     e20,e50,atr,rsi=ind; x=c[i]; prior=c[i-20:i]
+    if atr[i] < float(os.getenv("MIN_ATR","0.6")): return None
     lo,hi=min(z.low for z in prior),max(z.high for z in prior)
     bull_sweep=x.low < lo and x.close > lo; bear_sweep=x.high > hi and x.close < hi
     bull=e20[i]>e50[i] and bull_sweep and rsi[i] > 45
