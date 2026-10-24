@@ -55,8 +55,8 @@ DASHBOARD_HTML = r"""<!doctype html>
   var chart = LightweightCharts.createChart($('chart'), {
     layout: { background: { color: '#171b22' }, textColor: '#aab2c0' },
     grid: { vertLines: { color: '#222833' }, horzLines: { color: '#222833' } },
-    timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#2b323d' },
-    rightPriceScale: { borderColor: '#2b323d' },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#2b323d', barSpacing: 8, minBarSpacing: 3, rightOffset: 6 },
+    rightPriceScale: { borderColor: '#2b323d', scaleMargins: { top: 0.12, bottom: 0.12 } },
     crosshair: { mode: 0 },
     autoSize: true
   });
@@ -64,6 +64,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
     wickUpColor: '#22c55e', wickDownColor: '#ef4444'
   });
+  var first = true;
   var overlays = [];   // line series for signal levels
   var priceLines = []; // axis labels for active signal
 
@@ -120,7 +121,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     var a = d.active, box = $('active'); box.textContent = '';
     if (a) {
-      [['តម្លៃចូល', a.entry, 'entry', '#60a5fa'], ['យកចំណេញ (TP)', a.target, 'buy', '#22c55e'], ['ទប់ការខាត (SL)', a.stop, 'sell', '#ef4444']].forEach(function (r) {
+      [['ENTRY', a.entry, 'entry', '#60a5fa'], ['TP', a.target, 'buy', '#22c55e'], ['SL', a.stop, 'sell', '#ef4444']].forEach(function (r) {
         priceLines.push(candles.createPriceLine({ price: r[1], color: r[3], lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: r[0] }));
       });
       var g = document.createElement('div'); g.className = 'grid';
@@ -137,7 +138,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       var n = document.createElement('div'); n.className = 'card'; n.textContent = '⏳ មិនមានសញ្ញាបើកនៅពេលនេះ — bot កំពុងស្កេនទីផ្សារ';
       box.appendChild(n);
     }
-    chart.timeScale().fitContent();
+    if (first && c.length) {
+      first = false;
+      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, c.length - 100), to: c.length + 6 });
+    }
   }
 
   function status(d) {
