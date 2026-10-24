@@ -8,10 +8,12 @@ import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs
 
 import bot
 from alert_templates import render, STYLES
 from signal_history import SignalHistory
+from dashboard import DASHBOARD_HTML
 
 SCAN_SECONDS = max(60, int(os.getenv('PAPER_SCAN_INTERVAL_SECONDS', '300')))
 DATA_MODE = os.getenv('PAPER_DATA_MODE', 'demo').lower()
@@ -34,6 +36,8 @@ def _load_delivery():
         return set()
 
 sent_events = _load_delivery()
+chart_data = None
+DASHBOARD_KEY = os.getenv('DASHBOARD_KEY', '')
 
 def _persist_sent():
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -51,6 +55,25 @@ def _parse_time(s):
             raise ValueError('Candle timestamp lacks timezone; set MARKET_DATA_TIMEZONE=UTC only if provider timestamps are UTC')
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+def _build_chart(candles, events):
+    """Chart payload for the read-only dashboard; never raises into the alert path."""
+    try:
+        ts = [int(_parse_time(x.time).timestamp()) for x in candles]
+        signals, cur = [], None
+        for e in events:
+            if e[0] in ('BUY', 'SELL'):
+                cur = {'side': e[0], 'time': ts[e[1]], 'entry': e[2].entry, 'stop': e[2].stop,
+                       'target': e[2].target, 'reason': e[2].reason, 'close_time': None,
+                       'exit': None, 'result': None, 'pnl': None}
+                signals.append(cur)
+            elif e[0] == 'CLOSE' and cur:
+                cur.update(close_time=ts[e[1]], exit=e[3], result=e[4], pnl=e[5]); cur = None
+        return {'candles': [{'time': t, 'open': x.open, 'high': x.high, 'low': x.low, 'close': x.close}
+                            for t, x in zip(ts, candles)],
+                'signals': signals, 'active': cur}
+    except Exception:
+        return None
 
 def scan_once():
     if TEMPLATE_STYLE not in STYLES: raise ValueError('Invalid TELEGRAM_TEMPLATE')
@@ -78,6 +101,9 @@ def scan_once():
     latest = [e for e in events if e[1] == closed_idx]
     if os.getenv('SEND_CLOSE_ALERTS', 'true').lower() != 'true':
         latest = [e for e in latest if e[0] != 'CLOSE']
+    global chart_data
+    built = _build_chart(candles, events)
+    with lock: chart_data = built
     sent = 0
     if TELEGRAM_ENABLED:
         for event in latest:
@@ -133,7 +159,34 @@ def monitor():
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_): pass
+    def _authorized(self):
+        if not DASHBOARD_KEY: return True
+        provided = parse_qs(urlparse(self.path).query).get('key', [''])[0]
+        return hmac.compare_digest(provided, DASHBOARD_KEY)
+
+    def _send(self, code, body, ctype):
+        data = body if isinstance(body, bytes) else body.encode()
+        self.send_response(code)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
+        route = urlparse(self.path).path
+        if route == '/dashboard':
+            if not self._authorized():
+                return self._send(401, json.dumps({'error': 'unauthorized'}), 'application/json')
+            return self._send(200, DASHBOARD_HTML, 'text/html; charset=utf-8')
+        if route == '/api/chart':
+            if not self._authorized():
+                return self._send(401, json.dumps({'error': 'unauthorized'}), 'application/json')
+            with lock:
+                body = dict(state); body.pop('error_detail', None)
+                if chart_data: body.update(chart_data)
+            return self._send(200, json.dumps(body), 'application/json')
         if self.path in ('/api/history', '/api/stats'):
             token = os.getenv('HISTORY_API_TOKEN', '')
             provided = self.headers.get('Authorization', '')
