@@ -1,5 +1,6 @@
 """Read-only chart dashboard page for the paper XAUUSD monitor (no trading actions)."""
 
+
 DASHBOARD_HTML = r"""<!doctype html>
 <html lang="km">
 <head>
